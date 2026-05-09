@@ -1,0 +1,125 @@
+// schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+  binaryTargets = ["native", "windows"]
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  HOME
+  RESTAURANT
+  CHARITY
+  ADMIN
+}
+
+enum DonationStatus {
+  AVAILABLE
+  PENDING
+  RESERVED
+  COMPLETED
+  CANCELLED
+}
+
+enum InventoryStatus {
+  FRESH
+  EXPIRING
+  EXPIRED
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String
+  role          UserRole  @default(HOME)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // العلاقات
+  inventory     Product[]
+  inventoryItems InventoryItem[]
+  donations     Donation[] @relation("Donor")
+  received      Donation[] @relation("Receiver")
+  wasteLogs     WasteLog[]
+  charity       Charity?
+}
+
+model Product {
+  id          String    @id @default(cuid())
+  name        String
+  category    String    // مثلا: خضروات، لحوم، ألبان
+  quantity    Float
+  unit        String    // مثلا: كجم، حبة، لتر
+  expiryDate  DateTime
+  createdAt   DateTime  @default(now())
+  
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Donation {
+  id          String         @id @default(cuid())
+  title       String
+  description String?
+  quantity    Float
+  unit        String
+  pickupTime  String?
+  location    String?
+  status      DonationStatus @default(AVAILABLE)
+  createdAt   DateTime       @default(now())
+
+  donorId     String
+  donor       User           @relation("Donor", fields: [donorId], references: [id])
+  
+  receiverId  String?
+  receiver    User?          @relation("Receiver", fields: [receiverId], references: [id])
+
+  charityId   String?
+  charity     Charity?       @relation(fields: [charityId], references: [id])
+}
+
+model InventoryItem {
+  id          String          @id @default(cuid())
+  name        String
+  category    String
+  quantity    Float
+  unit        String
+  expiryDate  DateTime
+  status      InventoryStatus @default(FRESH)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+
+  userId      String
+  user        User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Charity {
+  id          String      @id @default(cuid())
+  name        String
+  description String?
+  image       String?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  userId      String?     @unique
+  user        User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  donations   Donation[]
+}
+
+model WasteLog {
+  id          String    @id @default(cuid())
+  productName String    // اسم المنتج المهدر
+  quantity    String    // الكمية مع الوحدة، مثل: 5 كجم
+  reason      String    // السبب: تالف، منتهي الصلاحية، إلخ
+  cost        Float     // التكلفة المالية
+  notes       String?   // ملاحظات اختيارية
+  createdAt   DateTime  @default(now())
+
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
